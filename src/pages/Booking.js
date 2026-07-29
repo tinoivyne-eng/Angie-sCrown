@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Alert from '../components/Alert';
@@ -43,6 +43,12 @@ export default function Booking() {
   useEffect(() => {
     let mounted = true;
     async function load() {
+      if (!isSupabaseConfigured) {
+        setLoading(false);
+        setError('Booking needs Supabase configured before services and stylists can load.');
+        return;
+      }
+
       const [svcRes, stylistRes] = await Promise.all([
         supabase.from('services').select('*, categories(name)').eq('is_active', true).order('name'),
         supabase.from('stylists').select('*').eq('is_active', true).order('full_name'),
@@ -79,7 +85,7 @@ export default function Booking() {
 
   // Load availability for the selected stylist across the upcoming date range
   useEffect(() => {
-    if (!selectedStylist || !selectedService) return;
+    if (!isSupabaseConfigured || !selectedStylist || !selectedService) return;
     let mounted = true;
     setSlotsLoading(true);
 
@@ -139,6 +145,10 @@ export default function Booking() {
 
   const handleConfirm = async () => {
     setError('');
+    if (!isSupabaseConfigured) {
+      setError('Booking needs Supabase configured before appointments can be created.');
+      return;
+    }
     if (!user) {
       navigate('/login', { state: { from: location } });
       return;

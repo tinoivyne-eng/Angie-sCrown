@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import ServiceCard from '../components/ServiceCard';
 import StylistCard from '../components/StylistCard';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -14,6 +14,11 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
     async function load() {
+      if (!isSupabaseConfigured) {
+        setLoading(false);
+        return;
+      }
+
       const [svcRes, stylistRes, galleryRes] = await Promise.all([
         supabase
           .from('services')
