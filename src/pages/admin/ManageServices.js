@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import AdminLayout from '../../components/AdminLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
@@ -25,6 +25,10 @@ export default function ManageServices() {
 
   const load = async () => {
     setLoading(true);
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
     const [catRes, svcRes] = await Promise.all([
       supabase.from('categories').select('*').order('sort_order'),
       supabase.from('services').select('*, categories(name)').order('name'),

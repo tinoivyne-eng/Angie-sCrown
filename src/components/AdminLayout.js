@@ -6,6 +6,7 @@ const LINKS = [
   { to: '/admin/bookings', label: 'Bookings' },
   { to: '/admin/services', label: 'Services' },
   { to: '/admin/stylists', label: 'Stylists' },
+  { to: '/admin/gallery', label: 'Work Gallery' },
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/revenue', label: 'Revenue' },
 ];

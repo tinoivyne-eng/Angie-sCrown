@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import AdminLayout from '../../components/AdminLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
@@ -19,6 +19,10 @@ export default function Revenue() {
   useEffect(() => {
     let mounted = true;
     setLoading(true);
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return () => { mounted = false; };
+    }
     const startDate = toDateString(addDays(new Date(), -rangeDays));
     supabase
       .from('appointments')

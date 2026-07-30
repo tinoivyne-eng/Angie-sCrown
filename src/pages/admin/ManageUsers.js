@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import AdminLayout from '../../components/AdminLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
@@ -15,6 +15,10 @@ export default function ManageUsers() {
 
   const load = async () => {
     setLoading(true);
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
     const [userRes, roleRes] = await Promise.all([
       supabase.from('profiles').select('*, roles(id, name)').order('created_at', { ascending: false }),
       supabase.from('roles').select('*').order('name'),

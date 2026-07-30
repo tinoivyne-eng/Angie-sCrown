@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import AdminLayout from '../../components/AdminLayout';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import StatusBadge from '../../components/StatusBadge';
@@ -30,6 +30,10 @@ export default function Dashboard() {
   useEffect(() => {
     let mounted = true;
     async function load() {
+      if (!isSupabaseConfigured) {
+        setLoading(false);
+        return;
+      }
       const today = toDateString(new Date());
       const monthStart = toDateString(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 

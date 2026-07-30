@@ -24,6 +24,7 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import AdminDashboard from './pages/admin/Dashboard';
 import ManageServices from './pages/admin/ManageServices';
 import ManageStylists from './pages/admin/ManageStylists';
+import ManageGallery from './pages/admin/ManageGallery';
 import ManageBookings from './pages/admin/ManageBookings';
 import ManageUsers from './pages/admin/ManageUsers';
 import Revenue from './pages/admin/Revenue';
@@ -71,6 +72,7 @@ export default function App() {
             <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/services" element={<ProtectedRoute requireAdmin><ManageServices /></ProtectedRoute>} />
             <Route path="/admin/stylists" element={<ProtectedRoute requireAdmin><ManageStylists /></ProtectedRoute>} />
+            <Route path="/admin/gallery" element={<ProtectedRoute requireAdmin><ManageGallery /></ProtectedRoute>} />
             <Route path="/admin/bookings" element={<ProtectedRoute requireAdmin><ManageBookings /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute requireAdmin><ManageUsers /></ProtectedRoute>} />
             <Route path="/admin/revenue" element={<ProtectedRoute requireAdmin><Revenue /></ProtectedRoute>} />

@@ -4,6 +4,8 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import ServiceCard from '../components/ServiceCard';
 import StylistCard from '../components/StylistCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import BeautyImageStrip from '../components/BeautyImageStrip';
+import { heroImage } from '../lib/beautyImages';
 
 export default function Home() {
   const [services, setServices] = useState([]);
@@ -50,7 +52,15 @@ export default function Home() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative bg-secondary text-white overflow-hidden">
+      <section className="relative min-h-[620px] bg-secondary text-white overflow-hidden">
+        <img
+          src={heroImage.src}
+          alt={heroImage.alt}
+          className="absolute inset-0 h-full w-full object-cover opacity-45"
+          fetchPriority="high"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-secondary via-secondary/82 to-secondary/25" />
         <div className="max-w-6xl mx-auto px-6 py-28 md:py-36 relative z-10">
           <p className="font-body text-xs tracking-[0.3em] uppercase text-primary-light mb-4">
             Hair · Nails · Skin · Makeup
@@ -77,7 +87,10 @@ export default function Home() {
             </Link>
           </div>
         </div>
-        <div className="absolute -right-24 -bottom-24 w-96 h-96 rounded-full bg-primary/20 blur-3xl" />
+      </section>
+
+      <section className="max-w-6xl mx-auto px-6 -mt-16 relative z-20">
+        <BeautyImageStrip />
       </section>
 
       {loading ? (
