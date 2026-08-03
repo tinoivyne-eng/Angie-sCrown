@@ -52,7 +52,7 @@ export default function Home() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative min-h-[620px] bg-secondary text-white overflow-hidden">
+      <section className="relative min-h-[480px] bg-secondary text-white overflow-hidden">
         <img
           src={heroImage.src}
           alt={heroImage.alt}
@@ -61,7 +61,7 @@ export default function Home() {
           decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-secondary via-secondary/82 to-secondary/25" />
-        <div className="max-w-6xl mx-auto px-6 py-28 md:py-36 relative z-10">
+        <div className="max-w-6xl mx-auto px-6 py-14 md:py-20 relative z-10">
           <p className="font-body text-xs tracking-[0.3em] uppercase text-primary-light mb-4">
             Hair · Nails · Skin · Makeup
           </p>
