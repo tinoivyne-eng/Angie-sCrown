@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Alert from '../../components/Alert';
 
@@ -9,6 +10,7 @@ export default function Register() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -88,17 +90,26 @@ export default function Register() {
             />
           </div>
 
-          <div>
+          <div className="relative">
             <label className="block font-body text-sm text-ink mb-1.5" htmlFor="password">Password</label>
             <input
               id="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full border border-line rounded-sm px-3.5 py-2.5 pr-11 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               placeholder="At least 6 characters"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              className="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center text-muted hover:text-primary focus:outline-none focus:text-primary"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            </button>
           </div>
 
           <button
