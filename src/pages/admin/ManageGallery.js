@@ -5,6 +5,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
 import Modal from '../../components/Modal';
 import Alert from '../../components/Alert';
+import { compressImageToWebp } from '../../lib/imageCompression';
 
 const emptyWork = {
   id: null,
@@ -19,6 +20,17 @@ const emptyWork = {
 function fileNameFor(file) {
   const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/(^-|-$)/g, '');
   return `work/${Date.now()}-${safeName}`;
+}
+
+function galleryStoragePath(imageUrl) {
+  try {
+    const marker = '/storage/v1/object/public/gallery/';
+    const path = new URL(imageUrl).pathname;
+    const markerIndex = path.indexOf(marker);
+    return markerIndex >= 0 ? decodeURIComponent(path.slice(markerIndex + marker.length)) : null;
+  } catch {
+    return null;
+  }
 }
 
 export default function ManageGallery() {
@@ -64,16 +76,29 @@ export default function ManageGallery() {
 
     setSaving(true);
     let imageUrl = workModal.image_url;
+    let uploadedPath = null;
 
     if (imageFile) {
-      const uploadPath = fileNameFor(imageFile);
-      const { error: uploadError } = await supabase.storage.from('gallery').upload(uploadPath, imageFile, { upsert: false });
+      let compressedImage;
+      try {
+        compressedImage = await compressImageToWebp(imageFile);
+      } catch (compressionError) {
+        setSaving(false);
+        setError(compressionError.message);
+        return;
+      }
+
+      uploadedPath = fileNameFor(compressedImage);
+      const { error: uploadError } = await supabase.storage.from('gallery').upload(uploadedPath, compressedImage, {
+        contentType: 'image/webp',
+        upsert: false,
+      });
       if (uploadError) {
         setSaving(false);
         setError(uploadError.message);
         return;
       }
-      const { data } = supabase.storage.from('gallery').getPublicUrl(uploadPath);
+      const { data } = supabase.storage.from('gallery').getPublicUrl(uploadedPath);
       imageUrl = data.publicUrl;
     }
 
@@ -91,7 +116,13 @@ export default function ManageGallery() {
       : supabase.from('gallery').insert(payload);
     const { error } = await query;
     setSaving(false);
-    if (error) { setError(error.message); return; }
+    if (error) {
+      if (uploadedPath) await supabase.storage.from('gallery').remove([uploadedPath]);
+      setError(error.message);
+      return;
+    }
+    const previousImagePath = imageFile && workModal.id ? galleryStoragePath(workModal.image_url) : null;
+    if (previousImagePath) await supabase.storage.from('gallery').remove([previousImagePath]);
     setWorkModal(null);
     setImageFile(null);
     load();
@@ -101,6 +132,11 @@ export default function ManageGallery() {
     if (!window.confirm('Delete this gallery item?')) return;
     const { error } = await supabase.from('gallery').delete().eq('id', item.id);
     if (error) { setError(error.message); return; }
+    const imagePath = galleryStoragePath(item.image_url);
+    if (imagePath) {
+      const { error: storageError } = await supabase.storage.from('gallery').remove([imagePath]);
+      if (storageError) setError(`Gallery item deleted, but its image could not be removed: ${storageError.message}`);
+    }
     load();
   };
 
@@ -174,6 +210,7 @@ export default function ManageGallery() {
                   onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                   className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm"
                 />
+                <p className="mt-1.5 font-body text-xs text-muted">Images are resized to a maximum of 1920px and saved as WebP for faster loading.</p>
               </div>
               <div>
                 <label className="block font-body text-sm text-ink mb-1.5">Or image URL</label>

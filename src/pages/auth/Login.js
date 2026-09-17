@@ -40,6 +40,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-md p-8 flex flex-col gap-4">
           <Alert type="error">{error}</Alert>
+          <Alert type="success">{location.state?.passwordReset ? 'Password updated. You can now sign in.' : ''}</Alert>
 
           <div>
             <label className="block font-body text-sm text-ink mb-1.5" htmlFor="email">Email</label>

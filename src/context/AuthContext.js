@@ -11,7 +11,7 @@ export function AuthProvider({ children }) {
   const loadProfile = useCallback(async (userId) => {
     if (!userId) {
       setProfile(null);
-      return;
+      return null;
     }
     const { data, error } = await supabase
       .from('profiles')
@@ -21,9 +21,10 @@ export function AuthProvider({ children }) {
     if (error) {
       console.error('Failed to load profile', error);
       setProfile(null);
-      return;
+      return null;
     }
     setProfile(data);
+    return data;
   }, []);
 
   useEffect(() => {
@@ -40,7 +41,14 @@ export function AuthProvider({ children }) {
       if (!mounted) return;
       setSession(session);
       if (session?.user) {
-        await loadProfile(session.user.id);
+        const currentProfile = await loadProfile(session.user.id);
+        if (currentProfile && !currentProfile.is_active) {
+          await supabase.auth.signOut();
+          if (mounted) {
+            setSession(null);
+            setProfile(null);
+          }
+        }
       }
       setLoading(false);
     });
@@ -48,7 +56,10 @@ export function AuthProvider({ children }) {
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session?.user) {
-        await loadProfile(session.user.id);
+        const currentProfile = await loadProfile(session.user.id);
+        if (currentProfile && !currentProfile.is_active) {
+          await supabase.auth.signOut();
+        }
       } else {
         setProfile(null);
       }
@@ -105,7 +116,7 @@ export function AuthProvider({ children }) {
     }
 
     return supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: `${window.location.origin}/reset-password`,
     });
   };
 

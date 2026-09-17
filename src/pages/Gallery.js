@@ -78,7 +78,13 @@ export default function Gallery() {
                 onClick={() => setLightbox(item)}
                 className="block w-full break-inside-avoid rounded-md overflow-hidden bg-accent"
               >
-                <img src={item.image_url} alt={item.title || 'Salon work'} className="w-full object-cover" />
+                <img
+                  src={item.image_url}
+                  alt={item.title || 'Salon work'}
+                  className="w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
               </button>
             ))}
           </div>

@@ -45,7 +45,10 @@ export default function ManageBookings() {
 
   const updateStatus = async (id, status) => {
     setUpdatingId(id);
-    const { error } = await supabase.from('appointments').update({ status }).eq('id', id);
+    const { error } = await supabase.rpc('admin_update_appointment_status', {
+      p_appointment_id: id,
+      p_status: status,
+    });
     setUpdatingId(null);
     if (error) {
       window.alert(error.message);

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import Alert from '../components/Alert';
@@ -7,6 +8,8 @@ export default function Settings() {
   const { signOut } = useAuth();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
@@ -49,23 +52,45 @@ export default function Settings() {
           <Alert type="success">{success}</Alert>
           <div>
             <label className="block font-body text-sm text-ink mb-1.5" htmlFor="newPassword">New password</label>
-            <input
-              id="newPassword"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+            <div className="relative">
+              <input
+                id="newPassword"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full border border-line rounded-sm px-3.5 py-2.5 pr-11 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((visible) => !visible)}
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted hover:text-primary focus:outline-none focus:text-primary"
+                aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showNewPassword}
+              >
+                {showNewPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block font-body text-sm text-ink mb-1.5" htmlFor="confirmPassword">Confirm new password</label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+            <div className="relative">
+              <input
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full border border-line rounded-sm px-3.5 py-2.5 pr-11 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((visible) => !visible)}
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted hover:text-primary focus:outline-none focus:text-primary"
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showConfirmPassword}
+              >
+                {showConfirmPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
+            </div>
           </div>
           <button
             type="submit"

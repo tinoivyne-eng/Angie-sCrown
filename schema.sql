@@ -9,6 +9,7 @@
 -- ---------------------------------------------------------------------
 create extension if not exists "pgcrypto";   -- gen_random_uuid()
 create extension if not exists "citext";     -- case-insensitive emails/codes
+create extension if not exists "btree_gist"; -- overlap-safe appointment constraint
 
 
 -- ---------------------------------------------------------------------
@@ -271,6 +272,21 @@ create unique index if not exists uq_stylist_slot
   on appointments(stylist_id, appointment_date, start_time)
   where status not in ('cancelled', 'no_show');
 
+-- Prevent every overlapping active booking for a stylist, including bookings
+-- submitted at the same time from different browsers.
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'no_overlapping_active_appointments'
+  ) then
+    alter table appointments
+      add constraint no_overlapping_active_appointments
+      exclude using gist (
+        stylist_id with =,
+        tsrange(appointment_date + start_time, appointment_date + end_time, '[)') with &&
+      ) where (status not in ('cancelled', 'no_show'));
+  end if;
+end $$;
+
 create index if not exists idx_appointments_customer on appointments(customer_id);
 create index if not exists idx_appointments_stylist_date on appointments(stylist_id, appointment_date);
 create index if not exists idx_appointments_status on appointments(status);
@@ -460,7 +476,20 @@ as $$
   select exists (
     select 1 from profiles p
     join roles r on r.id = p.role_id
-    where p.id = auth.uid() and r.name = 'admin'
+    where p.id = auth.uid() and p.is_active and r.name = 'admin'
+  );
+$$;
+
+-- Helper: has the current account been disabled by an administrator?
+create or replace function is_active_user()
+returns boolean
+language sql
+security definer set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from profiles p
+    where p.id = auth.uid() and p.is_active
   );
 $$;
 
@@ -503,6 +532,54 @@ create policy "profiles_update_own_or_admin" on profiles
 drop policy if exists "profiles_admin_insert_delete" on profiles;
 create policy "profiles_admin_insert_delete" on profiles
   for delete using (is_admin());
+
+-- Customers may only edit their own contact details directly. Privileged fields
+-- such as role_id, loyalty_points, and is_active must go through admin-only RPCs.
+revoke update on public.profiles from anon, authenticated;
+grant update (full_name, phone, avatar_url) on public.profiles to authenticated;
+
+create or replace function admin_set_profile_role(target_user_id uuid, new_role_id uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if not is_admin() then
+    raise exception 'Only administrators can change user roles';
+  end if;
+
+  if new_role_id is not null and not exists (select 1 from roles where id = new_role_id) then
+    raise exception 'The selected role does not exist';
+  end if;
+
+  update profiles set role_id = new_role_id where id = target_user_id;
+  if not found then
+    raise exception 'User profile not found';
+  end if;
+end;
+$$;
+
+create or replace function admin_set_profile_active(target_user_id uuid, new_is_active boolean)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if not is_admin() then
+    raise exception 'Only administrators can change account status';
+  end if;
+
+  update profiles set is_active = new_is_active where id = target_user_id;
+  if not found then
+    raise exception 'User profile not found';
+  end if;
+end;
+$$;
+
+revoke all on function admin_set_profile_role(uuid, uuid) from public;
+revoke all on function admin_set_profile_active(uuid, boolean) from public;
+grant execute on function admin_set_profile_role(uuid, uuid) to authenticated;
+grant execute on function admin_set_profile_active(uuid, boolean) to authenticated;
 
 -- categories / services: public read (active only), admin manage
 drop policy if exists "categories_public_read" on categories;
@@ -551,17 +628,160 @@ create policy "blocked_dates_write" on blocked_dates
   for all using (is_admin() or is_own_stylist(stylist_id))
   with check (is_admin() or is_own_stylist(stylist_id));
 
--- appointments: customers see/manage their own; stylists see/manage their own; admin sees all
+-- Appointments are readable by the customer, assigned stylist, or an admin.
+-- All writes use the protected functions below so browser clients cannot alter
+-- price, service, time, stylist, or status fields directly.
 drop policy if exists "appointments_select" on appointments;
 create policy "appointments_select" on appointments
   for select using (customer_id = auth.uid() or is_own_stylist(stylist_id) or is_admin());
 drop policy if exists "appointments_insert" on appointments;
-create policy "appointments_insert" on appointments
-  for insert with check (customer_id = auth.uid() or is_admin());
 drop policy if exists "appointments_update" on appointments;
-create policy "appointments_update" on appointments
-  for update using (customer_id = auth.uid() or is_own_stylist(stylist_id) or is_admin())
-  with check (customer_id = auth.uid() or is_own_stylist(stylist_id) or is_admin());
+
+revoke insert, update on public.appointments from anon, authenticated;
+
+create or replace function create_appointment(
+  p_service_id uuid,
+  p_stylist_id uuid,
+  p_appointment_date date,
+  p_start_time time,
+  p_notes text default null
+)
+returns appointments
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_price numeric(10,2);
+  v_duration integer;
+  v_end_time time;
+  v_appointment appointments;
+begin
+  if not is_active_user() then
+    raise exception 'Your account is disabled. Please contact the salon.';
+  end if;
+
+  if p_appointment_date < current_date then
+    raise exception 'Appointments cannot be booked in the past';
+  end if;
+
+  select price, duration_minutes into v_price, v_duration
+  from services where id = p_service_id and is_active;
+  if not found then
+    raise exception 'The selected service is unavailable';
+  end if;
+
+  if not exists (select 1 from stylists where id = p_stylist_id and is_active) then
+    raise exception 'The selected stylist is unavailable';
+  end if;
+
+  v_end_time := p_start_time + make_interval(mins => v_duration);
+  if v_end_time <= p_start_time then
+    raise exception 'Appointments cannot run past midnight';
+  end if;
+
+  if not exists (
+    select 1 from working_hours
+    where stylist_id = p_stylist_id
+      and day_of_week = extract(dow from p_appointment_date)::smallint
+      and not is_day_off
+      and start_time <= p_start_time
+      and end_time >= v_end_time
+  ) then
+    raise exception 'The selected time is outside this stylist''s working hours';
+  end if;
+
+  if exists (
+    select 1 from blocked_dates
+    where date = p_appointment_date
+      and (stylist_id = p_stylist_id or stylist_id is null)
+      and (start_time is null or end_time is null or (start_time < v_end_time and end_time > p_start_time))
+  ) then
+    raise exception 'The selected time is unavailable';
+  end if;
+
+  if exists (
+    select 1 from appointments
+    where stylist_id = p_stylist_id
+      and appointment_date = p_appointment_date
+      and status not in ('cancelled', 'no_show')
+      and start_time < v_end_time
+      and end_time > p_start_time
+  ) then
+    raise exception 'That time slot was just booked by someone else';
+  end if;
+
+  insert into appointments (customer_id, stylist_id, service_id, appointment_date, start_time, end_time, status, notes, total_price)
+  values (auth.uid(), p_stylist_id, p_service_id, p_appointment_date, p_start_time, v_end_time, 'pending', p_notes, v_price)
+  returning * into v_appointment;
+
+  insert into notifications (user_id, type, title, body, data)
+  values (
+    auth.uid(),
+    'booking',
+    'Appointment requested',
+    'Your appointment is pending confirmation.',
+    jsonb_build_object('appointment_id', v_appointment.id)
+  );
+
+  return v_appointment;
+end;
+$$;
+
+create or replace function cancel_own_appointment(p_appointment_id uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if not is_active_user() then
+    raise exception 'Your account is disabled. Please contact the salon.';
+  end if;
+
+  update appointments
+  set status = 'cancelled'
+  where id = p_appointment_id
+    and customer_id = auth.uid()
+    and status in ('pending', 'confirmed')
+    and appointment_date >= current_date;
+
+  if not found then
+    raise exception 'This appointment cannot be cancelled';
+  end if;
+end;
+$$;
+
+create or replace function admin_update_appointment_status(p_appointment_id uuid, p_status appointment_status)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_current_status appointment_status;
+begin
+  if not is_admin() then
+    raise exception 'Only administrators can update appointment status';
+  end if;
+
+  select status into v_current_status from appointments where id = p_appointment_id for update;
+  if not found then
+    raise exception 'Appointment not found';
+  end if;
+
+  if (v_current_status = 'pending' and p_status not in ('confirmed', 'cancelled'))
+     or (v_current_status = 'confirmed' and p_status not in ('completed', 'cancelled', 'no_show')) then
+    raise exception 'This status change is not allowed';
+  end if;
+
+  update appointments set status = p_status where id = p_appointment_id;
+end;
+$$;
+
+revoke all on function create_appointment(uuid, uuid, date, time, text) from public;
+revoke all on function cancel_own_appointment(uuid) from public;
+revoke all on function admin_update_appointment_status(uuid, appointment_status) from public;
+grant execute on function create_appointment(uuid, uuid, date, time, text) to authenticated;
+grant execute on function cancel_own_appointment(uuid) to authenticated;
+grant execute on function admin_update_appointment_status(uuid, appointment_status) to authenticated;
 
 -- reviews: public read, customer can insert for their own completed appointment
 drop policy if exists "reviews_public_read" on reviews;
@@ -672,6 +892,10 @@ create policy "admin_write_gallery" on storage.objects
 drop policy if exists "admin_update_gallery" on storage.objects;
 create policy "admin_update_gallery" on storage.objects
   for update using (bucket_id = 'gallery' and is_admin());
+
+drop policy if exists "admin_delete_gallery" on storage.objects;
+create policy "admin_delete_gallery" on storage.objects
+  for delete using (bucket_id = 'gallery' and is_admin());
 
 drop policy if exists "admin_write_portfolio" on storage.objects;
 create policy "admin_write_portfolio" on storage.objects

@@ -40,7 +40,10 @@ export default function ManageUsers() {
 
   const changeRole = async (userId, roleId) => {
     setUpdatingId(userId);
-    const { error } = await supabase.from('profiles').update({ role_id: roleId || null }).eq('id', userId);
+    const { error } = await supabase.rpc('admin_set_profile_role', {
+      target_user_id: userId,
+      new_role_id: roleId || null,
+    });
     setUpdatingId(null);
     if (error) { setError(error.message); return; }
     load();
@@ -48,7 +51,10 @@ export default function ManageUsers() {
 
   const toggleActive = async (u) => {
     setUpdatingId(u.id);
-    const { error } = await supabase.from('profiles').update({ is_active: !u.is_active }).eq('id', u.id);
+    const { error } = await supabase.rpc('admin_set_profile_active', {
+      target_user_id: u.id,
+      new_is_active: !u.is_active,
+    });
     setUpdatingId(null);
     if (error) { setError(error.message); return; }
     load();

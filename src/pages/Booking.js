@@ -156,43 +156,25 @@ export default function Booking() {
     if (!selectedService || !selectedStylist || !selectedDate || !selectedTime) return;
 
     setSubmitting(true);
-    const duration = selectedService.duration_minutes;
-    const startMinutes = timeToMinutes(selectedTime);
-    const endTime = `${Math.floor((startMinutes + duration) / 60).toString().padStart(2, '0')}:${((startMinutes + duration) % 60).toString().padStart(2, '0')}:00`;
-
     const { data, error } = await supabase
-      .from('appointments')
-      .insert({
-        customer_id: user.id,
-        stylist_id: selectedStylist.id,
-        service_id: selectedService.id,
-        appointment_date: selectedDate,
-        start_time: selectedTime,
-        end_time: endTime,
-        status: 'pending',
-        notes: notes || null,
-        total_price: selectedService.price,
+      .rpc('create_appointment', {
+        p_service_id: selectedService.id,
+        p_stylist_id: selectedStylist.id,
+        p_appointment_date: selectedDate,
+        p_start_time: selectedTime,
+        p_notes: notes || null,
       })
-      .select()
       .single();
 
     setSubmitting(false);
     if (error) {
       setError(
-        error.code === '23505'
+        error.code === '23505' || error.code === '23P01'
           ? 'That time slot was just booked by someone else. Please choose another.'
           : error.message
       );
       return;
     }
-
-    await supabase.from('notifications').insert({
-      user_id: user.id,
-      type: 'booking',
-      title: 'Appointment requested',
-      body: `Your ${selectedService.name} with ${selectedStylist.full_name} on ${formatDateLabel(selectedDate)} is pending confirmation.`,
-      data: { appointment_id: data.id },
-    });
 
     setConfirmedAppointment(data);
   };

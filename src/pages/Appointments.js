@@ -48,9 +48,7 @@ export default function Appointments() {
   const handleCancel = async (appt) => {
     if (!window.confirm('Cancel this appointment?')) return;
     const { error } = await supabase
-      .from('appointments')
-      .update({ status: 'cancelled' })
-      .eq('id', appt.id);
+      .rpc('cancel_own_appointment', { p_appointment_id: appt.id });
     if (error) {
       setError(error.message);
       return;
