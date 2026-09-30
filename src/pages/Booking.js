@@ -272,10 +272,10 @@ export default function Booking() {
                   className={`text-left bg-surface border rounded-md p-5 flex gap-4 items-center hover:shadow-medium transition-shadow ${
                     selectedStylist?.id === s.id ? 'border-primary ring-1 ring-primary' : 'border-line'
                   }`}
-                >
-                  <div className="h-14 w-14 rounded-full bg-accent flex items-center justify-center shrink-0">
-                    <span className="font-heading text-xl text-primary/60">{s.full_name.charAt(0)}</span>
-                  </div>
+                  >
+                    <div className="h-14 w-14 rounded-full bg-accent flex items-center justify-center shrink-0 overflow-hidden">
+                      {s.avatar_url ? <img src={s.avatar_url} alt="" className="h-full w-full object-cover" /> : <span className="font-heading text-xl text-primary/60">{s.full_name.charAt(0)}</span>}
+                    </div>
                   <div>
                     <h3 className="font-heading text-lg text-ink">{s.full_name}</h3>
                     <p className="font-body text-xs text-muted">

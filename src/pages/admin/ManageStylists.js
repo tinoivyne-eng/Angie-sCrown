@@ -5,13 +5,26 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import EmptyState from '../../components/EmptyState';
 import Modal from '../../components/Modal';
 import Alert from '../../components/Alert';
+import { compressImageToWebp } from '../../lib/imageCompression';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function stylistImagePath(imageUrl) {
+  try {
+    const marker = '/storage/v1/object/public/avatars/stylists/';
+    const path = new URL(imageUrl).pathname;
+    const markerIndex = path.indexOf(marker);
+    return markerIndex >= 0 ? decodeURIComponent(path.slice(markerIndex + marker.length)) : null;
+  } catch {
+    return null;
+  }
+}
 
 const emptyStylist = {
   id: null,
   profile_id: '',
   full_name: '',
+  avatar_url: '',
   bio: '',
   specialties: '',
   years_experience: '',
@@ -24,6 +37,7 @@ export default function ManageStylists() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stylistModal, setStylistModal] = useState(null);
+  const [stylistImageFile, setStylistImageFile] = useState(null);
   const [hoursModal, setHoursModal] = useState(null);
   const [hours, setHours] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -49,9 +63,32 @@ export default function ManageStylists() {
     e.preventDefault();
     setError('');
     setSaving(true);
+    let avatarUrl = stylistModal.avatar_url || null;
+    let uploadedPath = null;
+    if (stylistImageFile) {
+      let compressedImage;
+      try {
+        compressedImage = await compressImageToWebp(stylistImageFile);
+      } catch (compressionError) {
+        setSaving(false);
+        setError(compressionError.message);
+        return;
+      }
+      uploadedPath = `stylists/${Date.now()}-${compressedImage.name}`;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(uploadedPath, compressedImage, { contentType: 'image/webp', upsert: false });
+      if (uploadError) {
+        setSaving(false);
+        setError(uploadError.message);
+        return;
+      }
+      const { data } = supabase.storage.from('avatars').getPublicUrl(uploadedPath);
+      avatarUrl = data.publicUrl;
+    }
+
     const payload = {
       profile_id: stylistModal.profile_id || null,
       full_name: stylistModal.full_name,
+      avatar_url: avatarUrl,
       bio: stylistModal.bio || null,
       specialties: stylistModal.specialties
         ? stylistModal.specialties.split(',').map((s) => s.trim()).filter(Boolean)
@@ -64,8 +101,15 @@ export default function ManageStylists() {
       : supabase.from('stylists').insert(payload);
     const { error } = await query;
     setSaving(false);
-    if (error) { setError(error.message); return; }
+    if (error) {
+      if (uploadedPath) await supabase.storage.from('avatars').remove([uploadedPath]);
+      setError(error.message);
+      return;
+    }
+    const previousImagePath = stylistImageFile && stylistModal.id ? stylistImagePath(stylistModal.avatar_url) : null;
+    if (previousImagePath) await supabase.storage.from('avatars').remove([`stylists/${previousImagePath}`]);
     setStylistModal(null);
+    setStylistImageFile(null);
     load();
   };
 
@@ -111,7 +155,7 @@ export default function ManageStylists() {
       title="Stylists"
       description="Manage your team and their weekly availability."
       actions={
-        <button onClick={() => setStylistModal(emptyStylist)} className="font-body text-sm font-semibold bg-primary text-white px-4 py-2 rounded-sm hover:bg-primary-dark">
+        <button onClick={() => { setStylistImageFile(null); setStylistModal(emptyStylist); }} className="font-body text-sm font-semibold bg-primary text-white px-4 py-2 rounded-sm hover:bg-primary-dark">
           + Stylist
         </button>
       }
@@ -137,6 +181,7 @@ export default function ManageStylists() {
                 {s.years_experience ? ` · ${s.years_experience} yrs exp.` : ''}
               </p>
               <p className="font-body text-xs text-muted mt-1">{s.profile_id ? 'Login account linked' : 'No login account linked'}</p>
+              {s.avatar_url && <img src={s.avatar_url} alt={`${s.full_name} profile`} className="h-14 w-14 rounded-full object-cover border border-line mt-3" />}
               {s.specialties?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {s.specialties.map((sp) => (
@@ -145,7 +190,7 @@ export default function ManageStylists() {
                 </div>
               )}
               <div className="flex gap-4 mt-4 pt-3 border-t border-line">
-                <button onClick={() => setStylistModal({ ...s, specialties: (s.specialties || []).join(', '), years_experience: s.years_experience || '' })} className="font-body text-xs font-semibold text-primary hover:text-primary-dark">Edit</button>
+                <button onClick={() => { setStylistImageFile(null); setStylistModal({ ...s, specialties: (s.specialties || []).join(', '), years_experience: s.years_experience || '' }); }} className="font-body text-xs font-semibold text-primary hover:text-primary-dark">Edit</button>
                 <button onClick={() => openHours(s)} className="font-body text-xs font-semibold text-primary hover:text-primary-dark">Hours</button>
                 <button onClick={() => deleteStylist(s.id)} className="font-body text-xs font-semibold text-danger hover:text-danger/80">Delete</button>
               </div>
@@ -174,6 +219,19 @@ export default function ManageStylists() {
               <label className="block font-body text-sm text-ink mb-1.5">Full name</label>
               <input required value={stylistModal.full_name} onChange={(e) => setStylistModal({ ...stylistModal, full_name: e.target.value })}
                 className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+            </div>
+            <div>
+              <label className="block font-body text-sm text-ink mb-1.5">Upload profile photo <span className="text-muted">(optional)</span></label>
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setStylistImageFile(e.target.files?.[0] || null)} className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm" />
+              <p className="mt-1.5 font-body text-xs text-muted">Uploads are resized to a maximum of 1920px and saved as WebP for faster loading.</p>
+              {(stylistImageFile || stylistModal.avatar_url) && <img src={stylistImageFile ? URL.createObjectURL(stylistImageFile) : stylistModal.avatar_url} alt="Stylist preview" className="mt-3 h-24 w-24 rounded-full object-cover border border-line" />}
+            </div>
+            <div>
+              <label className="block font-body text-sm text-ink mb-1.5">Or profile photo URL <span className="text-muted">(optional)</span></label>
+              <input type="url" value={stylistModal.avatar_url || ''} onChange={(e) => setStylistModal({ ...stylistModal, avatar_url: e.target.value })}
+                placeholder="https://example.com/stylist-photo.jpg"
+                className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40" />
+              <p className="mt-1.5 font-body text-xs text-muted">Leave blank to use the stylist&apos;s initials instead.</p>
             </div>
             <div>
               <label className="block font-body text-sm text-ink mb-1.5">Bio</label>

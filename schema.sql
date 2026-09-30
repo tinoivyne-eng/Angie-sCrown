@@ -944,6 +944,14 @@ create policy "user_update_own_avatar" on storage.objects
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+-- Admins can manage stylist profile photos inside avatars/stylists/.
+drop policy if exists "admin_write_stylist_avatars" on storage.objects;
+create policy "admin_write_stylist_avatars" on storage.objects
+  for insert with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = 'stylists' and is_admin());
+drop policy if exists "admin_delete_stylist_avatars" on storage.objects;
+create policy "admin_delete_stylist_avatars" on storage.objects
+  for delete using (bucket_id = 'avatars' and (storage.foldername(name))[1] = 'stylists' and is_admin());
+
 -- Only admins can manage gallery / portfolio uploads
 drop policy if exists "admin_write_gallery" on storage.objects;
 create policy "admin_write_gallery" on storage.objects
