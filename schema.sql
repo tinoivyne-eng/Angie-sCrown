@@ -181,6 +181,8 @@ create table if not exists stylists (
 );
 
 create index if not exists idx_stylists_active on stylists(is_active);
+create unique index if not exists uq_stylists_profile_id
+  on stylists(profile_id) where profile_id is not null;
 
 drop trigger if exists trg_stylists_updated_at on stylists;
 create trigger trg_stylists_updated_at
@@ -525,7 +527,15 @@ create policy "role_permissions_admin_write" on role_permissions for all using (
 -- profiles: users see & edit their own row; admins see & edit all
 drop policy if exists "profiles_select_own_or_admin" on profiles;
 create policy "profiles_select_own_or_admin" on profiles
-  for select using (auth.uid() = id or is_admin());
+  for select using (
+    auth.uid() = id
+    or is_admin()
+    or exists (
+      select 1 from appointments a
+      join stylists s on s.id = a.stylist_id
+      where a.customer_id = profiles.id and s.profile_id = auth.uid()
+    )
+  );
 drop policy if exists "profiles_update_own_or_admin" on profiles;
 create policy "profiles_update_own_or_admin" on profiles
   for update using (auth.uid() = id or is_admin()) with check (auth.uid() = id or is_admin());
@@ -801,6 +811,37 @@ revoke all on function admin_update_appointment_status(uuid, appointment_status)
 grant execute on function create_appointment(uuid, uuid, date, time, text) to authenticated;
 grant execute on function cancel_own_appointment(uuid) to authenticated;
 grant execute on function admin_update_appointment_status(uuid, appointment_status) to authenticated;
+
+-- A stylist can update only the status of their own confirmed appointments.
+create or replace function stylist_update_appointment_status(p_appointment_id uuid, p_status appointment_status)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if p_status not in ('completed', 'no_show') then
+    raise exception 'Stylists can only mark appointments completed or no-show';
+  end if;
+
+  update appointments
+  set status = p_status
+  where id = p_appointment_id
+    and status = 'confirmed'
+    and exists (
+      select 1 from stylists
+      where stylists.id = appointments.stylist_id
+        and stylists.profile_id = auth.uid()
+        and stylists.is_active
+    );
+
+  if not found then
+    raise exception 'You can only update your own confirmed appointments';
+  end if;
+end;
+$$;
+
+revoke all on function stylist_update_appointment_status(uuid, appointment_status) from public;
+grant execute on function stylist_update_appointment_status(uuid, appointment_status) to authenticated;
 
 -- reviews: public read, customer can insert for their own completed appointment
 drop policy if exists "reviews_public_read" on reviews;

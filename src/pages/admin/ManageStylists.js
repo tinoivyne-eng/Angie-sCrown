@@ -10,6 +10,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const emptyStylist = {
   id: null,
+  profile_id: '',
   full_name: '',
   bio: '',
   specialties: '',
@@ -19,6 +20,7 @@ const emptyStylist = {
 
 export default function ManageStylists() {
   const [stylists, setStylists] = useState([]);
+  const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stylistModal, setStylistModal] = useState(null);
@@ -32,8 +34,12 @@ export default function ManageStylists() {
       setLoading(false);
       return;
     }
-    const { data } = await supabase.from('stylists').select('*').order('full_name');
-    setStylists(data || []);
+    const [stylistResult, profileResult] = await Promise.all([
+      supabase.from('stylists').select('*').order('full_name'),
+      supabase.from('profiles').select('id, full_name, email, roles(name)').order('full_name'),
+    ]);
+    setStylists(stylistResult.data || []);
+    setProfiles(profileResult.data || []);
     setLoading(false);
   };
 
@@ -44,6 +50,7 @@ export default function ManageStylists() {
     setError('');
     setSaving(true);
     const payload = {
+      profile_id: stylistModal.profile_id || null,
       full_name: stylistModal.full_name,
       bio: stylistModal.bio || null,
       specialties: stylistModal.specialties
@@ -129,6 +136,7 @@ export default function ManageStylists() {
                 {s.rating_count > 0 ? `★ ${s.rating_avg.toFixed(1)} (${s.rating_count})` : 'No reviews yet'}
                 {s.years_experience ? ` · ${s.years_experience} yrs exp.` : ''}
               </p>
+              <p className="font-body text-xs text-muted mt-1">{s.profile_id ? 'Login account linked' : 'No login account linked'}</p>
               {s.specialties?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {s.specialties.map((sp) => (
@@ -149,6 +157,19 @@ export default function ManageStylists() {
       {stylistModal && (
         <Modal title={stylistModal.id ? 'Edit Stylist' : 'New Stylist'} onClose={() => setStylistModal(null)}>
           <form onSubmit={saveStylist} className="flex flex-col gap-4">
+            <div>
+              <label className="block font-body text-sm text-ink mb-1.5">Linked login account</label>
+              <select value={stylistModal.profile_id || ''} onChange={(e) => setStylistModal({ ...stylistModal, profile_id: e.target.value })}
+                className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                <option value="">No login account yet</option>
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {(profile.full_name || profile.email)}{profile.roles?.name ? ` — ${profile.roles.name}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 font-body text-xs text-muted">Set this user&apos;s role to Stylist in Admin → Users, then link their account here.</p>
+            </div>
             <div>
               <label className="block font-body text-sm text-ink mb-1.5">Full name</label>
               <input required value={stylistModal.full_name} onChange={(e) => setStylistModal({ ...stylistModal, full_name: e.target.value })}

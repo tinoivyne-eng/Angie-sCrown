@@ -10,7 +10,7 @@ const NAV_LINKS = [
 ];
 
 export default function Navbar() {
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profile, isAdmin, isStylist, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
@@ -66,6 +66,9 @@ export default function Navbar() {
                   {isAdmin && (
                     <Link to="/admin" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm font-body text-primary font-medium hover:bg-canvas">Admin Dashboard</Link>
                   )}
+                  {isStylist && (
+                    <Link to="/stylist" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm font-body text-primary font-medium hover:bg-canvas">Stylist Dashboard</Link>
+                  )}
                   <button onClick={handleSignOut} className="w-full text-left px-4 py-2 text-sm font-body text-danger hover:bg-canvas border-t border-line mt-1">
                     Sign Out
                   </button>
@@ -109,6 +112,7 @@ export default function Navbar() {
               <Link to="/profile" onClick={() => setMobileOpen(false)} className="font-body text-sm text-ink/80">Profile</Link>
               <Link to="/appointments" onClick={() => setMobileOpen(false)} className="font-body text-sm text-ink/80">My Appointments</Link>
               {isAdmin && <Link to="/admin" onClick={() => setMobileOpen(false)} className="font-body text-sm text-primary font-medium">Admin Dashboard</Link>}
+              {isStylist && <Link to="/stylist" onClick={() => setMobileOpen(false)} className="font-body text-sm text-primary font-medium">Stylist Dashboard</Link>}
               <button onClick={handleSignOut} className="font-body text-sm text-danger text-left">Sign Out</button>
             </>
           ) : (

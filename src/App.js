@@ -15,6 +15,7 @@ import Gallery from './pages/Gallery';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
+import StylistDashboard from './pages/stylist/StylistDashboard';
 import NotFound from './pages/NotFound';
 
 import Login from './pages/auth/Login';
@@ -62,6 +63,10 @@ export default function App() {
             <Route
               path="/notifications"
               element={withSite(<ProtectedRoute><Notifications /></ProtectedRoute>)}
+            />
+            <Route
+              path="/stylist"
+              element={withSite(<ProtectedRoute requireStylist><StylistDashboard /></ProtectedRoute>)}
             />
 
             {/* Auth */}
