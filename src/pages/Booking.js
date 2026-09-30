@@ -14,7 +14,7 @@ import {
 } from '../lib/time';
 
 const STEPS = ['Service', 'Stylist', 'Date & Time', 'Confirm'];
-const DAYS_AHEAD = 14;
+const DAYS_AHEAD = 90;
 
 export default function Booking() {
   const { user } = useAuth();
@@ -82,6 +82,9 @@ export default function Booking() {
     for (let i = 1; i <= DAYS_AHEAD; i++) arr.push(addDays(new Date(), i));
     return arr;
   }, []);
+
+  const bookingWindowStart = useMemo(() => toDateString(addDays(new Date(), 1)), []);
+  const bookingWindowEnd = useMemo(() => toDateString(addDays(new Date(), DAYS_AHEAD)), []);
 
   // Load availability for the selected stylist across the upcoming date range
   useEffect(() => {
@@ -314,6 +317,20 @@ export default function Booking() {
                       </button>
                     );
                   })}
+                </div>
+
+                <div className="max-w-xs mb-6">
+                  <label className="block font-body text-sm text-ink mb-1.5" htmlFor="appointmentDate">Choose a date</label>
+                  <input
+                    id="appointmentDate"
+                    type="date"
+                    min={bookingWindowStart}
+                    max={bookingWindowEnd}
+                    value={selectedDate || ''}
+                    onChange={(e) => { setSelectedDate(e.target.value || null); setSelectedTime(null); }}
+                    className="w-full border border-line rounded-sm px-3.5 py-2.5 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <p className="mt-1.5 font-body text-xs text-muted">Choose any available date in the next 90 days.</p>
                 </div>
 
                 {currentSlots.length === 0 ? (

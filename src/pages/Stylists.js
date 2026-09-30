@@ -38,7 +38,7 @@ export default function Stylists() {
         <p className="font-body text-xs uppercase tracking-wide text-primary font-semibold mb-2">Our Team</p>
         <h1 className="font-heading text-4xl text-ink mb-3">Meet the Stylists</h1>
         <p className="font-body text-muted">
-          Every stylist at Angie&apos;s Crown brings their own point of view, from natural curls and braids to soft waves and polished finishes.
+          Every stylist at Angie&apos;s Crown Creations brings their own point of view, from natural curls and braids to soft waves and polished finishes.
         </p>
         </div>
       </div>

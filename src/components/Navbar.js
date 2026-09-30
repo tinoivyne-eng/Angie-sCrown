@@ -30,7 +30,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur border-b border-line">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link to="/" className="font-heading text-2xl text-primary tracking-tight">
-          Angie&apos;s Crown
+          Angie&apos;s Crown Creation
         </Link>
 
         <nav className="hidden md:flex items-center gap-8">

@@ -11,7 +11,7 @@ const NEXT_ACTIONS = {
   pending: [['confirmed', 'Confirm'], ['cancelled', 'Decline']],
   confirmed: [['completed', 'Mark Completed'], ['no_show', 'Mark No-show'], ['cancelled', 'Cancel']],
   completed: [],
-  cancelled: [],
+  cancelled: [['pending', 'Restore booking']],
   no_show: [],
 };
 

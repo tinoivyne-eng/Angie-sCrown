@@ -33,12 +33,12 @@ export default function Footer() {
           <ul className="space-y-2 font-body text-sm text-white/60">
             <li>Tue – Sat, 9am – 6pm</li>
             <li>Closed Sun & Mon</li>
-            <li>hello@angiescrown.com</li>
+            <li>hello@angiescrowncreation.com</li>
           </ul>
         </div>
       </div>
       <div className="border-t border-white/10 py-5 text-center font-body text-xs text-white/40">
-        © {new Date().getFullYear()} Angie&apos;s Crown. All rights reserved.
+        © {new Date().getFullYear()} Angie&apos;s Crown Creation. All rights reserved.
       </div>
     </footer>
   );
