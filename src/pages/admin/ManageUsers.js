@@ -88,13 +88,16 @@ export default function ManageUsers() {
             <tbody className="divide-y divide-line">
               {filtered.map((u) => (
                 <tr key={u.id}>
-                  <td className="px-4 py-3 font-body text-sm text-ink font-medium">{u.full_name || '—'}</td>
+                  <td className="px-4 py-3 font-body text-sm text-ink font-medium">
+                    {u.full_name || '—'}
+                    {u.is_owner && <span className="ml-2 font-body text-xs font-semibold text-primary">Owner</span>}
+                  </td>
                   <td className="px-4 py-3 font-body text-sm text-muted">{u.email}</td>
                   <td className="px-4 py-3 font-body text-sm text-muted">{u.phone || '—'}</td>
                   <td className="px-4 py-3">
                     <select
                       value={u.role_id || ''}
-                      disabled={updatingId === u.id}
+                      disabled={updatingId === u.id || u.is_owner}
                       onChange={(e) => changeRole(u.id, e.target.value)}
                       className="border border-line rounded-sm px-2 py-1.5 font-body text-sm"
                     >
@@ -110,11 +113,11 @@ export default function ManageUsers() {
                   </td>
                   <td className="px-4 py-3">
                     <button
-                      disabled={updatingId === u.id}
+                      disabled={updatingId === u.id || u.is_owner}
                       onClick={() => toggleActive(u)}
                       className="font-body text-xs font-semibold text-primary hover:text-primary-dark disabled:opacity-50"
                     >
-                      {u.is_active ? 'Disable' : 'Enable'}
+                      {u.is_owner ? 'Protected' : u.is_active ? 'Disable' : 'Enable'}
                     </button>
                   </td>
                 </tr>

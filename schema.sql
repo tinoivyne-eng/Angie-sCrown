@@ -80,6 +80,7 @@ create table if not exists profiles (
   phone text,
   avatar_url text,
   role_id uuid references roles(id) default null,
+  is_owner boolean not null default false,
   loyalty_points integer not null default 0,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -90,6 +91,9 @@ drop trigger if exists trg_profiles_updated_at on profiles;
 create trigger trg_profiles_updated_at
   before update on profiles
   for each row execute function set_updated_at();
+
+-- Existing databases may already have this table from an earlier schema version.
+alter table profiles add column if not exists is_owner boolean not null default false;
 
 -- Auto-create a profile row whenever a new auth user signs up
 create or replace function handle_new_user()
@@ -541,7 +545,7 @@ create policy "profiles_update_own_or_admin" on profiles
   for update using (auth.uid() = id or is_admin()) with check (auth.uid() = id or is_admin());
 drop policy if exists "profiles_admin_insert_delete" on profiles;
 create policy "profiles_admin_insert_delete" on profiles
-  for delete using (is_admin());
+  for delete using (is_admin() and not is_owner);
 
 -- Customers may only edit their own contact details directly. Privileged fields
 -- such as role_id, loyalty_points, and is_active must go through admin-only RPCs.
@@ -562,6 +566,11 @@ begin
     raise exception 'The selected role does not exist';
   end if;
 
+  if exists (select 1 from profiles where id = target_user_id and is_owner)
+     and not exists (select 1 from roles where id = new_role_id and name = 'admin') then
+    raise exception 'The salon owner account must remain an active administrator';
+  end if;
+
   update profiles set role_id = new_role_id where id = target_user_id;
   if not found then
     raise exception 'User profile not found';
@@ -577,6 +586,10 @@ as $$
 begin
   if not is_admin() then
     raise exception 'Only administrators can change account status';
+  end if;
+
+  if not new_is_active and exists (select 1 from profiles where id = target_user_id and is_owner) then
+    raise exception 'The salon owner account cannot be disabled';
   end if;
 
   update profiles set is_active = new_is_active where id = target_user_id;
